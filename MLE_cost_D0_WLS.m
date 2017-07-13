@@ -1,7 +1,9 @@
 %MLE_cost_D0 written 6-13-17 by JTN to do 29-point WLS scheme
 
-function [J,WLS_SV,weight_f,weight_matrix,res,model] = MLE_cost_D0(cell_data,q_est,p,m0,m1,...
-    x,dx,xn,x_int,xbd_0,xbd_1,t,dt,tn,tdata,xdata,IC,IC_type,BC_x_0,BC_x_1,A_pos,A_neg,weightno)
+function [J,WLS_SV,weight_f,weight_matrix,res,model] = MLE_cost_D0_WLS(cell_data,q_est,p,m0,m1,...
+    x,dx,xn,x_int,xbd_0,xbd_1,t,dt,tn,tdata,xdata,IC,IC_type,BC_x_0,BC_x_1,A_pos,A_neg,stat_options)
+
+    weightno = stat_options.weightno;
 
     weight_f = zeros(weightno,1);
     N = numel(cell_data);
@@ -16,7 +18,7 @@ function [J,WLS_SV,weight_f,weight_matrix,res,model] = MLE_cost_D0(cell_data,q_e
     weight_matrix = zeros(numel(cell_data),1);
     
     %calculate residuals
-    res = model (:) - cell_data(:);
+    res = model(:) - cell_data(:);
     
     OLS_SV = 1/N*sum(res.^2); %slightly biased sample variance
     

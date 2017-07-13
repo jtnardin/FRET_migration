@@ -2,7 +2,7 @@
 %MLE optimization for the equation u_t = Du_xx - v(t)u_x in a parallelized
 %for loop to mean experimental data
 
-function mean_cell_data_fitting(l,m)
+function mean_cell_data_fitting(l,m,stat_model)
 
     %for bookkeeping
     welllet = 'mean';
@@ -10,8 +10,12 @@ function mean_cell_data_fitting(l,m)
     
     %interp IC
     IC_type = 'interp';
-    %how many weights for WLS
-    weightno = 29;
+    
+%     What type of optimization are we doing? WLS or autoregressive?
+    
+%     stat_model = 'autor';
+    stat_options = struct;
+    
     
     %how many rounds of optimization do we want to do?
     simnum = 10;
@@ -102,6 +106,48 @@ function mean_cell_data_fitting(l,m)
         (v.*se/2+v.*sw/2-v); (v-v.*se/2)],xn,xn);
 
     options = optimset('maxiter',75);
+    
+    
+    if strcmp(stat_model,'WLS')
+        %need weightno
+        stat_options.weightno = 29;
+        
+        name_save = [stat_model '_weightno'];
+        
+    elseif strcmp(stat_model,'autor')
+        %need A^-T*A^-1
+        
+        %size of data
+        xnd = length(xdata);
+        tnd = length(tdata);
+
+        %set alpha
+        alpha = .4;
+        alpha_vec = [repmat([alpha*ones(1,xnd-1) 0],1,tnd-2) alpha*ones(1,xnd-1)];
+        
+        total = xnd*tnd;
+        off_diag = xnd+2:total;
+          
+        A = sparse([1:total off_diag],[1:total off_diag-xnd-1],[ones(1,total) alpha_vec],total,total); 
+        stat_options.AinvAT = inv(A*A');
+        
+        name_save = [stat_model '_alpha' num2str(alpha)];
+        
+    elseif strcmp(stat_model,'fewer')
+        
+        %each row of data matrix corresponds to data at given time point. In this
+        %stat model, we only care about rows when t is a multiple of toCompare
+                
+        toCompare = 12;
+        cell_data = cell_data(1:3*toCompare:end,:);
+        
+        tdata = tdata(1:3*toCompare:end);
+        
+        %get smaller data sample
+        
+        name_save = [stat_model '_' num2str(toCompare)];
+        
+    end
 
     parfor k = 1:simnum
 
@@ -121,15 +167,23 @@ function mean_cell_data_fitting(l,m)
 
             tic
 
-            [q_all{k},J_all(k)] = fmincon(@(q) MLE_cost_D0(cell_data,q,p,m0,m1,x,dx,xn,x_int,xbd_0,xbd_1,t,dt,tn,tdata,xdata,...
-                         IC,IC_type,BC_x_0,BC_x_1,A_pos,A_neg,weightno),q0_all{k},[],[],[],[],LB,UB,[],options);
+            if strcmp(stat_model,'WLS')
+                [q_all{k},J_all(k)] = fmincon(@(q) MLE_cost_D0_WLS(cell_data,q,p,m0,m1,x,dx,xn,x_int,xbd_0,xbd_1,t,dt,tn,tdata,xdata,...
+                         IC,IC_type,BC_x_0,BC_x_1,A_pos,A_neg,stat_options),q0_all{k},[],[],[],[],LB,UB,[],options);
+            elseif strcmp(stat_model,'fewer')
+                [q_all{k},J_all(k)] = fmincon(@(q) MLE_cost_D0_fewer_compare(cell_data,q,p,m0,m1,x,dx,xn,x_int,xbd_0,xbd_1,t,dt,tn,tdata,xdata,...
+                         IC,IC_type,BC_x_0,BC_x_1,A_pos,A_neg),q0_all{k},[],[],[],[],LB,UB,[],options);
+            elseif strcmp(stat_model,'autor')
+                [q_all{k},J_all(k)] = fmincon(@(q) MLE_cost_D0_autor(cell_data,q,p,m0,m1,x,dx,xn,x_int,xbd_0,xbd_1,t,dt,tn,tdata,xdata,...
+                         IC,IC_type,BC_x_0,BC_x_1,A_pos,A_neg,stat_options),q0_all{k},[],[],[],[],LB,UB,[],options);
+            end
 
             toc
 
                        
     end
 
-    save(['/scratch/summit/jona8898/FRET_fitting/FRET_interp_est_' welllet num2str(well) '_' num2str(l) '.mat' ],...
-                'q_all','q_fret','q0_all','J_all')
+    save(['/scratch/summit/jona8898/FRET_fitting/FRET_interp_est_' welllet num2str(well) '_' num2str(l) '_' name_save '.mat' ],...
+                'q_all','q0_all','J_all')
 
 end

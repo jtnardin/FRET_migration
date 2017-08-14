@@ -1,4 +1,4 @@
-function pred_data(l,m,pred_ind,q_est,save_im,res_plot,stat_model)
+function run_sim(l,m,pred_ind,q_est,save_im,res_plot,stat_model)
 
 
     i = mod(l,4);
@@ -6,15 +6,13 @@ function pred_data(l,m,pred_ind,q_est,save_im,res_plot,stat_model)
         i = 4; %to determine grid size.
     end
     
-    
     %load in data
     load('ind_cell_prof_data.mat')
     load('FRET_data_ind.mat')
 
     %choose data
-    cell_data = squeeze(ind_cell_data{m-1,2}(pred_ind,:,16:end))';
-    FRET_data = squeeze(FRET_time_ind{m-1}(pred_ind,16:end));
-    
+    cell_data = avg_cell_data(ind_cell_data{m-1,2}(:,:,16:end),pred_ind)';
+    FRET_data = avg_fret_data(FRET_time_ind{m-1}(:,16:end),pred_ind);
     
     %initialize data grids
     [tndata,xndata] = size(cell_data);
@@ -40,7 +38,7 @@ function pred_data(l,m,pred_ind,q_est,save_im,res_plot,stat_model)
     
     
     
-    %%%% Now predict migration data
+    %%%% Now fit to migration data
        
     %grid sizes and models considered
     xnsize = [25 50 100 200];
@@ -162,7 +160,7 @@ function pred_data(l,m,pred_ind,q_est,save_im,res_plot,stat_model)
         for i = 1:floor(tndata/4):tndata
             plot(xdata,model(i,:),colors(count))
             plot(xdata,cell_data(i,:),[colors(count) '.'])
-            
+
             count = count + 1;
         end
     end
@@ -171,14 +169,14 @@ function pred_data(l,m,pred_ind,q_est,save_im,res_plot,stat_model)
     
     cell_dens = [1700,2500,3000,4000];
 
-    h=title(['Predicting cell density, density = ' num2str(cell_dens(m-1)) ' cells/mm$^2, x_n$ = ' num2str(xn)]);
+    h=title(['Fitting cell profile, density = ' num2str(cell_dens(m-1)) ' cells/mm$^2, x_n$ = ' num2str(xn)]);
     set(h,'interpreter','latex')
     xlabel('Location (x)')
     ylabel('u(t,x)')
     
     if save_im == 1
-        exportfig(gcf,['cell_predicting_' num2str(m) '_' num2str(l) name_save '_pred_' num2str(pred_ind) '.eps'],'color','rgb')
-        saveas(gcf,['cell_predicting_' num2str(m) '_' num2str(l) name_save '_pred_' num2str(pred_ind) '.fig'])
+        exportfig(gcf,['cell_fitting_' num2str(m) '_' num2str(l) name_save '_pred_' num2str(pred_ind) '.eps'],'color','rgb')
+        saveas(gcf,['cell_fitting_' num2str(m) '_' num2str(l) name_save '_pred_' num2str(pred_ind) '.fig'])
     end
     
 %     close
@@ -224,121 +222,41 @@ function pred_data(l,m,pred_ind,q_est,save_im,res_plot,stat_model)
            set(gca,'fontsize',20)
 
            title(['WLS residuals, cell density = ' num2str(cell_dens(m-1)) ' cells/mm$^2$'],'interpreter','latex')
-%            axis([0 1 0 tdata(end)])
+           axis([0 1 0 tdata(end)])
 
            caxis([-2 2])
            colorbar
        
        
             if save_im == 1
-                exportfig(gcf,['FRET_interp_predict_' num2str(m)   '_' num2str(l) '_' name save '_res.eps'],'color','rgb')
-                saveas(gcf,['FRET_interp_predict_' num2str(m) '_' num2str(l) '_' name save '_res.fig'])
+                exportfig(gcf,['FRET_interp_' num2str(m)   '_' num2str(l) '_' name save '_res.eps'],'color','rgb')
+                saveas(gcf,['FRET_interp_' num2str(m) '_' num2str(l) '_' name save '_res.fig'])
             end
     
        elseif strcmp(stat_model,'fewer')
-               
+           
            model_vec = model(:);
            
            res_final = res;
 
-            figure
-            hold on
-            plot(res_final,'b.')
-            plot([0 1e6],[0 0],'k')
-             axis([0 length(model_vec) -.3 .3])
- 
-            xlabel('Data Points','fontsize',30)
-            ylabel('$y_{ij} - f(t_i,x_j)$','fontsize',30,'interpreter','latex')
-            title(['Predicted residual, cell density = ' num2str(cell_dens(m-1)) ' cells/mm$^2,\ x_n$ = ' num2str(xn)],'interpreter','latex')
-            
-            
-            if save_im == 1
-                exportfig(gcf,['FRET_interp_predict_' num2str(m)   '_' num2str(l) '_' name_save '_res_pred_' num2str(pred_ind) '.eps'],'color','rgb')
-                saveas(gcf,['FRET_interp_predict_' num2str(m) '_' num2str(l) '_' name_save '_res_pred_' num2str(pred_ind) '.fig'])
-            end
-            
-            figure
-            hold on
-            plot(model_vec,res_final,'b.')
-%             plot([-.1 1.1],[0 0],'k')
-%             axis([0 1.01 -.2 .2])
- 
-            xlabel('$f(t_i,x_j)$','fontsize',30,'interpreter','latex')
-            ylabel('$y_{ij} - f(t_i,x_j)$','fontsize',30,'interpreter','latex')
-            title(['Predicted residual, cell density = ' num2str(cell_dens(m-1)) ' cells/mm$^2,\ x_n$ = ' num2str(xn)],'interpreter','latex')
+           figure
+           hold on
+           plot(res_final,'b.')
+           plot([0 1e6],[0 0],'k')
+           axis([0 length(model_vec) -.3 .3])
+
+           xlabel('Data Points','fontsize',30)
+           ylabel('$y_{ij} - f(t_i,x_j)$','fontsize',30,'interpreter','latex')
+           title(['Fit residual, cell density = ' num2str(cell_dens(m-1)) ' cells/mm$^2,\ x_n$ = ' num2str(xn)],'interpreter','latex')
+
+
+           if save_im == 1
+             exportfig(gcf,['FRET_interp_fit_' num2str(m)   '_' num2str(l) '_' name_save '_res_pred_' num2str(pred_ind) '.eps'],'color','rgb')
+             saveas(gcf,['FRET_interp_fit_' num2str(m) '_' num2str(l) '_' name_save '_res_pred_' num2str(pred_ind) '.fig'])
+           end
            
-            if save_im == 1
-                exportfig(gcf,['FRET_interp_predict_' num2str(m)   '_' num2str(l) '_' name_save '_res_model_pred_' num2str(pred_ind) '.eps'],'color','rgb')
-                saveas(gcf,['FRET_interp_predict_' num2str(m) '_' num2str(l) '_' name_save '_res_model_pred_' num2str(pred_ind) '.fig'])
-            end
        end
         
     end
-    
-    %%% plot velocity data from data, predicted
-    
-       
-    %get finer data
-    cell_data = squeeze(ind_cell_data{m-1,2}(pred_ind,:,16:3:end))';
-    %estimate of how fast population migrated over time
-    data_LE=leading_edge_calc(cell_data,xdata,0.5,0);
-    
-    tdata = 0:size(cell_data,1)-1;
-    
-    %compute v(m)
-    FRET = @(t) ppval(p,t);
-    n=5;
-    msamp = augknt([m0,m1,linspace(m0,m1,n)],2);
-    %create spline functions
-    v_spline = spmak(msamp,q_est');
-    %evaluate V(m(t))
-    Vx_c = @(t) fnval(v_spline,FRET(t));
-    
-    %plot v(m)
-    figure
-    plot(linspace(m0,m1,100),fnval(v_spline,linspace(m0,m1,100)))
-    title(['Estimated v(m) for a density of '  num2str(cell_dens(m-1)) ' cells/mm^2'])
-    xlabel('m')
-    ylabel('speed')
-    
-    if save_im == 1
-        exportfig(gcf,['FRET_fit_vm_' num2str(m) '_' num2str(l) '_' name_save '_pred_' num2str(pred_ind) '.eps'],'color','rgb')
-        saveas(gcf,['FRET_fit_vm_' num2str(m) '_' num2str(l) '_' name_save '_pred_' num2str(pred_ind) '.fig'])
-    end
-    
-    %plot FRET of predicted data set, along with resulting speed function
-    figure
-    hold on
-    plot(tdata,FRET_data(1:3:end)/max(FRET_data(1:3:end)))
-    plot(tdata(1:end-1),Vx_c(tdata(1:end-1))/max(Vx_c(tdata(1:end-1))))
-    legend('FRET ratio','Predicted Speed','location','northwest')
-
-    xlabel('Time (t)')
-    ylabel('FRET')
-    title(['FRET ratio and predicted v(m) for a density of '  num2str(cell_dens(m-1)) ' cells/mm^2'])
-    
-    
-    if save_im == 1
-        exportfig(gcf,['FRET_pred_vm_' num2str(m) '_' num2str(l) '_' name_save '_pred_' num2str(pred_ind) '.eps'],'color','rgb')
-        saveas(gcf,['FRET_pred_vm_' num2str(m) '_' num2str(l) '_' name_save '_pred_' num2str(pred_ind) '.fig'])
-    end
-    
-%     subplot(2,2,1) %plot data velocity , predicted velocity, and FRET
-%     hold on
-%     plot(tdata(1:end-1),diff(data_LE)/(tdata(4)-tdata(1))/max(diff(data_LE)/(tdata(4)-tdata(1))))
-%     plot(tdata,FRET_data(1:3:end)/max(FRET_data(1:3:end)))
-%     plot(tdata,Vx_c(tdata)/max(Vx_c(tdata)))
-%     
-%     title('normalized Vdata, Vmodel, FRET')
-%     legend('Vdata','Vmodel','FRET','location','southeast')
-%     
-%     %plot v(m)
-%     subplot(2,2,2)
-%     
-%     
-%     subplot(2,2,4)
-%     
-%     plot(tdata,FRET_data(1:3:end))
-%     title('FRET')
     
 end
